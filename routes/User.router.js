@@ -1,8 +1,5 @@
 const { Router } = require('express');
 const { auth, db } = require("../firebase.js");
-const { createUserWithEmailAndPassword, signInWithEmailAndPassword, deleteUser, sendPasswordResetEmail } = require("firebase/auth");
-const { doc, setDoc, getDoc, updateDoc, deleteDoc, collection, getDocs } = require("firebase/firestore");
-const { ref, uploadBytes, getDownloadURL } = require("firebase/storage");
 const User = require("../models/User.model.js");
 const { v4: uuidv4} = require("uuid");
 const bcrypt = require('bcrypt');

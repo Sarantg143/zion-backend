@@ -1,84 +1,57 @@
-const { Router } = require('express');
-const { auth, db, storage } = require('../firebase.js');
-const { ref, uploadBytes, getDownloadURL } = require('firebase/storage');
-const { collection, addDoc, getDocs, doc, getDoc } = require('firebase/firestore');
-const { v4: uuidv4 } = require('uuid');
-const Degree = require("../models/Degree.model.js");
+const express = require('express');
+const { db } = require('../firebase');
+const Degree = require('../models/Degree.model');
+const { uploadThumbnail, uploadFile } = require('../utils/fileUpload');  // Assuming file upload helper exists
+const { createTestData } = require('../utils/testData');  // Assuming test creation helper exists
+const multer = require("multer");
 
-// const { Router } = require('express');
-//const { db } = require('../firebase'); // Assuming Firebase setup
-// const { collection, addDoc } = require('firebase/firestore');
-const { uploadFile, uploadThumbnail } = require('../utils/fileUpload');
-const { createTestData } = require('../utils/testData');
-// const Degree = require('../models/Degree.model');
+const degreeRouter = express.Router();
 
-const degreeRouter = Router();
+const storage = multer.memoryStorage(); // Store files in memory
+const upload = multer({ storage });
 
-degreeRouter.post('/', async (req, res) => {
+// Add a new degree
+degreeRouter.post("/add", upload.fields([{ name: "thumbnail" }]), async (req, res) => {
     try {
-        const {
-            degreeTitle,
-            description,
-            overviewPoints = [],
-            courseThumbnail,
-            degreeThumbnail,
-            finalTest,
-            test,
-        } = req.body;
-
-        // Upload thumbnails
-        const degreeThumbnailUrl = degreeThumbnail ? await uploadThumbnail(degreeThumbnail) : null;
-        const courseThumbnailUrl = courseThumbnail ? await uploadFile(courseThumbnail) : null;
-
-        // Generate test data
-        const finalTestData = createTestData(finalTest);
-        const testData = createTestData(test);
-
-        // Prepare degree data
-        const degreeData = new Degree({
-            degreeTitle,
-            description,
-            thumbnail: degreeThumbnailUrl,
-            overviewPoints,
-            courses: [
-                {
-                    courseTitle: 'Example Course',
-                    thumbnail: courseThumbnailUrl,
-                    finalTest: finalTestData,
-                    chapters: [
-                        {
-                            chapterTitle: 'Chapter 1',
-                            test: testData,
-                            lessons: [
-                                {
-                                    lessonTitle: 'Lesson 1',
-                                    file: {
-                                        url: 'https://example.com/file.pdf',
-                                        type: 'document',
-                                        name: 'file.pdf',
-                                    },
-                                },
-                            ],
-                        },
-                    ],
-                },
-            ],
-        });
-
-        // Save to Firestore
-        const degreeRef = await addDoc(collection(db, 'degrees'), degreeData);
-
-        res.status(201).json({
-            message: 'Degree added successfully!',
-            degreeId: degreeRef.id,
-            degreeData,
-        });
+      const { body, files } = req;
+  
+      // Validate degreeData
+      if (!body.degreeData) {
+        return res.status(400).json({ error: "Degree data is required." });
+      }
+  
+      // Parse degreeData
+      let degreeData;
+      try {
+        degreeData = JSON.parse(body.degreeData);
+      } catch (error) {
+        return res.status(400).json({ error: "Invalid degree data format." });
+      }
+  
+      // Handle thumbnail upload
+      let thumbnailUrl = null;
+      if (files && files.thumbnail && files.thumbnail[0]) {
+        thumbnailUrl = await uploadThumbnail(files.thumbnail[0]);
+      }
+  
+      // Add thumbnail URL to degree data
+      degreeData.thumbnail = thumbnailUrl;
+  
+      // Create a new Degree instance
+      const newDegree = new Degree(degreeData);
+  
+      // Save degree to Firestore
+      await db.collection("degrees").doc(newDegree.degreeId).set(newDegree);
+  
+      res.status(201).json({
+        message: "Degree added successfully!",
+        degreeId: newDegree.degreeId,
+      });
     } catch (error) {
-        console.error('Error adding degree:', error);
-        res.status(500).json({ error: 'Failed to add degree' });
+      console.error("Error adding degree:", error);
+      res.status(500).json({ error: "Failed to add degree. Please try again later." });
     }
-});
-
+  });
 
 
 degreeRouter.get('/', async (req, res) => {
