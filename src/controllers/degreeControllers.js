@@ -142,7 +142,7 @@ const addDegree = async (degreeData) => {
                         return {
                             chapterId: uuidv4(),
                             chapterTitle: chapter.title,
-                            description: chapter.description || null,  // Default to null if not provided
+                            description: chapter.description || null,  
                             test: chapter.test ? createTestObject(chapter.test) : null,
                             lessons: formattedLessons,
                         };
@@ -202,16 +202,13 @@ const getAllDegrees = async () => {
 
 const getDegreeById = async (degreeId) => {
     try {
-      // Query the 'degrees' collection to find documents where the "degreeId" field matches
       const q = query(collection(db, 'degrees'), where('degreeId', '==', degreeId));
       const querySnapshot = await getDocs(q);
   
-      // If no documents are found, return an error message
       if (querySnapshot.empty) {
         throw new Error(`No degree found with degreeId: ${degreeId}`);
       }
   
-      // Return the first document that matches
       const degree = querySnapshot.docs[0].data();
       return degree;
     } catch (error) {
@@ -223,22 +220,18 @@ const getDegreeById = async (degreeId) => {
   const editDegree = async (degreeId, updatedDegreeData) => {
     try {
       checkRequiredFields(updatedDegreeData);
-  
-      // Query to find the degree document by the custom "degreeId"
       const q = query(collection(db, DEGREES_COLLECTION), where('degreeId', '==', degreeId));
       const querySnapshot = await getDocs(q);
   
       if (querySnapshot.empty) {
         throw new Error(`No degree found with degreeId: ${degreeId}`);
       }
-  
-      // Get the first document that matches the degreeId
+
       const degreeDocRef = doc(db, DEGREES_COLLECTION, querySnapshot.docs[0].id);
   
       const { name, description, thumbnail, overviewPoints, courses } = updatedDegreeData;
       const degreeThumbnailUrl = thumbnail ? await uploadThumbnail(thumbnail) : null;
   
-      // Format courses and chapters as required
       const formattedCourses = await Promise.all(
         courses.map(async (course) => {
           const courseThumbnailUrl = course.thumbnail ? await uploadThumbnail(course.thumbnail) : null;
@@ -299,8 +292,6 @@ const getDegreeById = async (degreeId) => {
         courses: formattedCourses,
         updatedAt: Date.now(),
       };
-  
-      // Update the degree document with the new data
       await updateDoc(degreeDocRef, updatedDegree);
       console.log('Degree updated successfully!');
       return updatedDegree;
@@ -313,7 +304,6 @@ const getDegreeById = async (degreeId) => {
 
 const deleteDegree = async (degreeId) => {
     try {
-      // Query to find the degree document by the custom "degreeId"
       const q = query(collection(db, DEGREES_COLLECTION), where('degreeId', '==', degreeId));
       const querySnapshot = await getDocs(q);
   
@@ -321,10 +311,8 @@ const deleteDegree = async (degreeId) => {
         throw new Error(`No degree found with degreeId: ${degreeId}`);
       }
   
-      // Get the first document that matches the degreeId
       const degreeDocRef = doc(db, DEGREES_COLLECTION, querySnapshot.docs[0].id);
-  
-      // Delete the degree document
+
       await deleteDoc(degreeDocRef);
       console.log('Degree deleted successfully!');
     } catch (error) {
@@ -336,29 +324,23 @@ const deleteDegree = async (degreeId) => {
 
   const getDegreeByCourseId = async (courseId) => {
     try {
-        // Fetch all degrees
+       
         const degreesSnapshot = await getDocs(collection(db, DEGREES_COLLECTION));
 
         if (degreesSnapshot.empty) {
             throw new Error("No degrees found in the database");
         }
-
-        // Find the degree containing the courseId
         for (const degreeDoc of degreesSnapshot.docs) {
             const degreeData = degreeDoc.data();
-
-            // Check if any course in the courses array matches the courseId
             const courseExists = degreeData.courses.some((course) => course.courseId === courseId);
 
             if (courseExists) {
                 return {
-                    degreeId: degreeDoc.id, // Firestore document ID
+                    degreeId: degreeDoc.id, 
                     ...degreeData,
                 };
             }
         }
-
-        // If no matching degree is found
         throw new Error(`No degree found for course ID: ${courseId}`);
     } catch (error) {
         console.error("Error getting degree by course ID:", error.message);

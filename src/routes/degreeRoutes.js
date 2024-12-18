@@ -1,19 +1,14 @@
 const express = require("express");
-// import { addDegree, getAllDegrees, getDegreeById } from '../controllers/degreeController';
-const { addDegree, getAllDegrees, getDegreeById,
-    editDegree,
-    deleteDegree,
+const { addDegree, getAllDegrees, getDegreeById,editDegree,deleteDegree,
     getDegreeByCourseId,getCourseById } = require('../controllers/degreeControllers');
-const multer = require("multer");
 
-const upload = multer(); // Multer for handling file uploads
 const router = express.Router();
 
 // Routes
-router.post('/add-degree', async (req, res) => {
+router.post('/', async (req, res) => {
     try {
-        const degreeData = req.body; // Expecting JSON body data from the client
-        const degreeId = await addDegree(degreeData); // Call the addDegree function
+        const degreeData = req.body; 
+        const degreeId = await addDegree(degreeData); 
         res.status(201).json({ message: 'Degree added successfully!', degreeId });
     } catch (error) {
         console.error('Error adding degree:', error.message);
@@ -21,7 +16,7 @@ router.post('/add-degree', async (req, res) => {
     }
 });
 
-router.get('/degrees', async (req, res) => {
+router.get('/', async (req, res) => {
     console.log('Request received for /api/degrees');
     try {
       const degrees = await getAllDegrees();
@@ -34,8 +29,8 @@ router.get('/degrees', async (req, res) => {
     }
   });
 
-// Route to fetch degree by degreeId
-router.get('/degrees/:degreeId', async (req, res) => {
+
+router.get('/:degreeId', async (req, res) => {
     try {
       const { degreeId } = req.params;
       const degree = await getDegreeById(degreeId);
@@ -49,30 +44,33 @@ router.get('/degrees/:degreeId', async (req, res) => {
     }
   });
   
-  
-  
-  // Edit a degree
-  router.put('/degrees/:id', async (req, res) => {
+  router.put('/:degreeId', async (req, res) => {
     try {
-      const updatedDegree = await editDegree(req.params.id, req.body);
-      res.status(200).json({ message: 'Degree updated successfully', updatedDegree });
+        const degreeId = req.params.degreeId;
+        const updatedDegreeData = req.body;
+
+        const updatedDegree = await editDegree(degreeId, updatedDegreeData);
+        res.status(200).json({ message: 'Degree updated successfully!', updatedDegree });
     } catch (error) {
-      res.status(400).json({ error: error.message });
+        console.error('Error updating degree:', error.message);
+        res.status(500).json({ error: error.message });
     }
-  });
-  
-  // Delete a degree
-  router.delete('/degrees/:id', async (req, res) => {
+});
+
+router.delete('/:degreeId', async (req, res) => {
     try {
-      await deleteDegree(req.params.id);
-      res.status(200).json({ message: 'Degree deleted successfully' });
+        const degreeId = req.params.degreeId;
+
+        await deleteDegree(degreeId);
+        res.status(200).json({ message: 'Degree deleted successfully!' });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+        console.error('Error deleting degree:', error.message);
+        res.status(500).json({ error: error.message });
     }
-  });
+});
   
   // Get degree by course ID
-  router.get('/degrees/course/:courseId', async (req, res) => {
+  router.get('/degrees/:courseId', async (req, res) => {
     try {
       const degree = await getDegreeByCourseId(req.params.courseId);
       res.status(200).json(degree);
@@ -82,7 +80,7 @@ router.get('/degrees/:degreeId', async (req, res) => {
   });
 
 
-router.get('/courses/:courseId', async (req, res) => {
+router.get('/:courseId', async (req, res) => {
   const { courseId } = req.params;
 
   try {
