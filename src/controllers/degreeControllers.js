@@ -16,35 +16,36 @@ const SUPPORTED_FILE_FOLDERS = {
 };
 
 const checkRequiredFields = (degreeData) => {
-    if (!degreeData.name) {
-        throw new Error('Degree title is required');
-    }
+  if (!degreeData.degreeTitle) { 
+      throw new Error('Degree title is required');
+  }
 
-    const hasValidCourses = degreeData.courses.every((course) => {
-        if (!course.title) {
-            throw new Error('Course title is required');
-        }
+  const hasValidCourses = degreeData.courses.every((course) => {
+      if (!course.courseTitle) { 
+          throw new Error('Course title is required');
+      }
 
-        const hasValidChapters = course.chapters.every((chapter) => {
-            if (!chapter.title) {
-                throw new Error('Chapter title is required');
-            }
+      const hasValidChapters = course.chapters.every((chapter) => {
+          if (!chapter.chapterTitle) { 
+              throw new Error('Chapter title is required');
+          }
 
-            const hasValidLessons = chapter.lessons.every((lesson) => {
-                if (!lesson.title) {
-                    throw new Error('Lesson title is required');
-                }
-                return true;
-            });
+          const hasValidLessons = chapter.lessons.every((lesson) => {
+              if (!lesson.lessonTitle) { 
+                  throw new Error('Lesson title is required');
+              }
+              return true;
+          });
 
-            return hasValidLessons;
-        });
+          return hasValidLessons;
+      });
 
-        return hasValidChapters;
-    });
+      return hasValidChapters;
+  });
 
-    return hasValidCourses;
+  return hasValidCourses;
 };
+
 
 const uploadFile = async (file) => {
     try {
@@ -114,78 +115,83 @@ const createTestObject = (testData) => {
 };
 
 const addDegree = async (degreeData) => {
-    try {
-        checkRequiredFields(degreeData);
+  try {
+      checkRequiredFields(degreeData);
 
-        const { name, description, thumbnail, overviewPoints, courses } = degreeData;
-        const degreeThumbnailUrl = thumbnail ? await uploadThumbnail(thumbnail) : null;
+      const { degreeTitle, description, thumbnail, overviewPoints, courses } = degreeData; 
+      const degreeThumbnailUrl = thumbnail ? await uploadThumbnail(thumbnail) : null;
 
-        const formattedCourses = await Promise.all(
-            courses.map(async (course) => {
-                const courseThumbnailUrl = course.thumbnail ? await uploadThumbnail(course.thumbnail) : null;
+      const formattedCourses = await Promise.all(
+          courses.map(async (course) => {
+              const courseThumbnailUrl = course.thumbnail ? await uploadThumbnail(course.thumbnail) : null;
 
-                const formattedChapters = await Promise.all(
-                    course.chapters.map(async (chapter) => {
-                        const formattedLessons = await Promise.all(
-                            chapter.lessons.map(async (lesson) => {
-                                const lessonFileMetadata = await uploadFile(lesson.file);
-                                return {
-                                    lessonId: uuidv4(),
-                                    lessonTitle: lesson.title,
-                                    file: lessonFileMetadata,
-                                };
-                            })
-                        );
+              const formattedChapters = await Promise.all(
+                  course.chapters.map(async (chapter) => {
+                      const formattedLessons = await Promise.all(
+                          chapter.lessons.map(async (lesson) => {
+                              const lessonFileMetadata = await uploadFile(lesson.file);
+                              return {
+                                  lessonId: uuidv4(),
+                                  lessonTitle: lesson.lessonTitle, 
+                                  file: lessonFileMetadata,
+                              };
+                          })
+                      );
 
-                        const test = chapter.test ? createTestObject(chapter.test) : null;
+                      const test = chapter.test ? createTestObject(chapter.test) : null;
 
-                        return {
-                            chapterId: uuidv4(),
-                            chapterTitle: chapter.title,
-                            description: chapter.description || null,  
-                            test: chapter.test ? createTestObject(chapter.test) : null,
-                            lessons: formattedLessons,
-                        };
-                    })
-                );
+                      return {
+                          chapterId: uuidv4(),
+                          chapterTitle: chapter.chapterTitle, 
+                          description: chapter.description || null,
+                          test: test, 
+                          lessons: formattedLessons,
+                      };
+                  })
+              );
 
-                return {
-                    courseId: uuidv4(),
-                    courseTitle: course.title,
-                    description: course.description || null, 
-                    thumbnail: courseThumbnailUrl || null,
-                    price: course.price || null,  
-                    chapters: formattedChapters,
-                    finalTest: course.finalTest ? createTestObject(course.finalTest) : null,
-                    overviewPoints: course.overviewPoints ? course.overviewPoints.map((point) => ({
-                        title: point.title || null,
-                        description: point.description || null,
-                    })) : [],
-                };
-            })
-        );
+              return {
+                  courseId: uuidv4(),
+                  courseTitle: course.courseTitle,
+                  description: course.description || null,
+                  thumbnail: courseThumbnailUrl || null,
+                  price: course.price || null,
+                  chapters: formattedChapters,
+                  finalTest: course.finalTest ? createTestObject(course.finalTest) : null,
+                  overviewPoints: course.overviewPoints
+                      ? course.overviewPoints.map((point) => ({
+                            title: point.title || null,
+                            description: point.description || null,
+                        }))
+                      : [],
+              };
+          })
+      );
 
-        const degree = {
-            degreeId: uuidv4(),
-            degreeTitle: name,
-            description: description || null,  
-            thumbnail: degreeThumbnailUrl || null,
-            overviewPoints: overviewPoints ? overviewPoints.map((point) => ({
-                title: point.title || null,
-                description: point.description || null,
-            })) : [],
-            courses: formattedCourses,
-            createdAt: Date.now(),
-        };
+      const degree = {
+          degreeId: uuidv4(),
+          degreeTitle: degreeTitle,
+          description: description || null,
+          thumbnail: degreeThumbnailUrl || null,
+          overviewPoints: overviewPoints
+              ? overviewPoints.map((point) => ({
+                    title: point.title || null,
+                    description: point.description || null,
+                }))
+              : [],
+          courses: formattedCourses,
+          createdAt: Date.now(),
+      };
 
-        await addDoc(collection(db, DEGREES_COLLECTION), degree);
-        console.log('Degree added successfully!');
-        return degree.degreeId;
-    } catch (error) {
-        console.error('Error adding degree:', error.message);
-        throw new Error(error.message);
-    }
+      await addDoc(collection(db, DEGREES_COLLECTION), degree);
+      console.log('Degree added successfully!');
+      return degree.degreeId;
+  } catch (error) {
+      console.error('Error adding degree:', error.message);
+      throw new Error(error.message);
+  }
 };
+
 
 const getAllDegrees = async () => {
     try {

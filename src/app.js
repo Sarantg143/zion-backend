@@ -1,10 +1,12 @@
+
+const cors = require("cors");
 const express = require("express");
 
 const degreeRoutes = require('./routes/degreeRoutes')
 const userRoutes = require('./routes/userRouter')
 const eventRoutes = require('./routes/eventRouter')
 const app = express();
-const cors = require("cors");
+
 // Middleware
 app.use(express.json());
 
