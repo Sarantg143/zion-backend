@@ -129,7 +129,9 @@ const addDegree = async (degreeData) => {
                   course.chapters.map(async (chapter) => {
                       const formattedLessons = await Promise.all(
                           chapter.lessons.map(async (lesson) => {
-                              const lessonFileMetadata = await uploadFile(lesson.file);
+                            const lessonFileMetadata = lesson.file 
+                            ? await uploadFile(lesson.file) 
+                            : null;
                               return {
                                   lessonId: uuidv4(),
                                   lessonTitle: lesson.lessonTitle, 
@@ -226,30 +228,40 @@ const getDegreeById = async (degreeId) => {
   const editDegree = async (degreeId, updatedDegreeData) => {
     try {
       checkRequiredFields(updatedDegreeData);
+  
       const q = query(collection(db, DEGREES_COLLECTION), where('degreeId', '==', degreeId));
       const querySnapshot = await getDocs(q);
   
       if (querySnapshot.empty) {
         throw new Error(`No degree found with degreeId: ${degreeId}`);
       }
-
+  
       const degreeDocRef = doc(db, DEGREES_COLLECTION, querySnapshot.docs[0].id);
   
-      const { name, description, thumbnail, overviewPoints, courses } = updatedDegreeData;
+      // Destructure and ensure defaults for missing fields
+      const { degreeTitle, description, thumbnail, overviewPoints = [], courses = [] } = updatedDegreeData;
+  
       const degreeThumbnailUrl = thumbnail ? await uploadThumbnail(thumbnail) : null;
+  
+      // Ensure that overviewPoints and courses are arrays
+      const formattedOverviewPoints = overviewPoints.map((point) => ({
+        title: point.title || null,
+        description: point.description || null,
+      }));
   
       const formattedCourses = await Promise.all(
         courses.map(async (course) => {
           const courseThumbnailUrl = course.thumbnail ? await uploadThumbnail(course.thumbnail) : null;
   
+          // Ensure each course has chapters, and chapters have lessons
           const formattedChapters = await Promise.all(
-            course.chapters.map(async (chapter) => {
+            (course.chapters || []).map(async (chapter) => {
               const formattedLessons = await Promise.all(
-                chapter.lessons.map(async (lesson) => {
-                  const lessonFileMetadata = await uploadFile(lesson.file);
+                (chapter.lessons || []).map(async (lesson) => {
+                  const lessonFileMetadata = lesson.file ? await uploadFile(lesson.file) : null;
                   return {
-                    lessonId: uuidv4(),
-                    lessonTitle: lesson.title,
+                    lessonId: lesson.lessonId,  // Keep existing lessonId
+                    lessonTitle: lesson.lessonTitle || null,
                     file: lessonFileMetadata,
                   };
                 })
@@ -258,8 +270,8 @@ const getDegreeById = async (degreeId) => {
               const test = chapter.test ? createTestObject(chapter.test) : null;
   
               return {
-                chapterId: uuidv4(),
-                chapterTitle: chapter.title,
+                chapterId: chapter.chapterId,  // Keep existing chapterId
+                chapterTitle: chapter.chapterTitle || null,
                 description: chapter.description || null,
                 test: test,
                 lessons: formattedLessons,
@@ -268,36 +280,55 @@ const getDegreeById = async (degreeId) => {
           );
   
           return {
-            courseId: uuidv4(),
-            courseTitle: course.title,
+            courseId: course.courseId,  // Keep existing courseId
+            courseTitle: course.courseTitle || null,
             description: course.description || null,
             thumbnail: courseThumbnailUrl || null,
             price: course.price || null,
             chapters: formattedChapters,
             finalTest: course.finalTest ? createTestObject(course.finalTest) : null,
-            overviewPoints: course.overviewPoints
-              ? course.overviewPoints.map((point) => ({
-                  title: point.title || null,
-                  description: point.description || null,
-                }))
-              : [],
+            overviewPoints: (course.overviewPoints || []).map((point) => ({
+              title: point.title || null,
+              description: point.description || null,
+            })),
           };
         })
       );
   
+      // Construct the updated degree object
       const updatedDegree = {
-        degreeTitle: name,
-        description: description || null,
-        thumbnail: degreeThumbnailUrl || null,
-        overviewPoints: overviewPoints
-          ? overviewPoints.map((point) => ({
-              title: point.title || null,
-              description: point.description || null,
-            }))
-          : [],
+        degreeTitle: degreeTitle || null,  // Ensure null instead of undefined
+        description: description || null,  // Ensure null instead of undefined
+        thumbnail: degreeThumbnailUrl || null,  // Ensure null instead of undefined
+        overviewPoints: formattedOverviewPoints,
         courses: formattedCourses,
         updatedAt: Date.now(),
       };
+  
+      // Log the updatedDegree object to verify there are no undefined fields
+      console.log('Updated Degree:', JSON.stringify(updatedDegree, null, 2));
+  
+      // Ensure none of the fields are undefined
+      Object.keys(updatedDegree).forEach(key => {
+        if (updatedDegree[key] === undefined) {
+          console.warn(`Field ${key} is undefined. Setting it to null.`);
+          updatedDegree[key] = null;
+        }
+      });
+  
+      // Add another layer of logging to identify if any nested fields might be undefined
+      updatedDegree.courses.forEach((course, index) => {
+        course.chapters.forEach((chapter, chapterIndex) => {
+          chapter.lessons.forEach((lesson, lessonIndex) => {
+            if (lesson.lessonId === undefined) {
+              console.warn(`Lesson ID missing for Lesson ${lessonIndex} in Chapter ${chapterIndex} of Course ${index}. Setting to null.`);
+              lesson.lessonId = null;
+            }
+          });
+        });
+      });
+  
+      // Perform the Firestore update
       await updateDoc(degreeDocRef, updatedDegree);
       console.log('Degree updated successfully!');
       return updatedDegree;
@@ -306,6 +337,9 @@ const getDegreeById = async (degreeId) => {
       throw new Error('Degree update failed');
     }
   };
+  
+  
+  
   
 
 const deleteDegree = async (degreeId) => {
