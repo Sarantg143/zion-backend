@@ -4,7 +4,7 @@ const degreeRoutes = require('./routes/degreeRoutes')
 const userRoutes = require('./routes/userRouter')
 const eventRoutes = require('./routes/eventRouter')
 const app = express();
-
+const cors = require("cors");
 // Middleware
 app.use(express.json());
 
@@ -15,6 +15,6 @@ app.use('/api/event',eventRoutes);
 
 // Default Route
 app.get('/', (req, res) => res.send('API is running!'));
-
+app.use(cors()); 
 
 module.exports = app;

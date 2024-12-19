@@ -91,7 +91,7 @@ const signupUser = async (data, isGoogleSignup = false) => {
             signatureFile: '',
             passportPhotoFile: '',
             educationCertFile: '',
-            purchasedCourse: [],
+            purchasedCourses: [],
             role: 'client',
             joinedDate: new Date().toISOString(),
         };
