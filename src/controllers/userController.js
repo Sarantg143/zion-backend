@@ -106,7 +106,6 @@ const signupUser = async (data, isGoogleSignup = false) => {
 };
 
 // Login user (manual or Google login)
-const loginUser = async (data, isGoogleLogin = false) => {
 const loginUser = async (data, isGoogleLogin) => {
     try {
         const usersRef = collection(db, 'users');
