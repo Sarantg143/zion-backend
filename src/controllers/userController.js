@@ -107,63 +107,82 @@ const signupUser = async (data, isGoogleSignup = false) => {
 
 // Login user (manual or Google login)
 const loginUser = async (data, isGoogleLogin = false) => {
+const loginUser = async (data, isGoogleLogin) => {
     try {
         const usersRef = collection(db, 'users');
-        let userDoc;
+        let user, email, password;
 
         if (isGoogleLogin) {
             const provider = new GoogleAuthProvider();
             const result = await signInWithPopup(auth, provider);
-            const googleUser = result.user;
+            user = result.user;
 
-            const userQuery = query(usersRef, where('email', '==', googleUser.email));
+            email = user.email;
+
+            // Check if the user exists in the database
+            const userQuery = query(usersRef, where('email', '==', email));
             const userSnapshot = await getDocs(userQuery);
 
             if (userSnapshot.empty) {
-                return { success: false, message: 'User not found. Please sign up first.' };
+                // If the user does not exist, sign them up
+                const firstName = user.displayName?.split(' ')[0] || '';
+                const lastName = user.displayName?.split(' ')[1] || '';
+                const profilePicture = user.photoURL || '';
+                const username = user.email.split('@')[0];
+
+                const newUserDoc = {
+                    firstName,
+                    lastName,
+                    email,
+                    username,
+                    password: null, // No password for Google login
+                    profilePicture,
+                    joinedDate: new Date().toISOString(),
+                    role: 'client',
+                };
+
+                await setDoc(doc(usersRef, user.uid), newUserDoc);
+                return {
+                    success: true,
+                    message: 'Google login successful!',
+                    user: newUserDoc,
+                };
+            } else {
+                const userData = userSnapshot.docs[0].data();
+                return {
+                    success: true,
+                    message: 'Google login successful!',
+                    user: userData,
+                };
             }
-
-            userDoc = userSnapshot.docs[0].data();
-
-            return {
-                success: true,
-                message: 'Google login successful!',
-                user: userDoc,
-            };
         } else {
-            const { emailOrUsername, password } = data;
+            // Manual login
+            const emailQuery = query(usersRef, where('email', '==', data.email));
+            const emailSnapshot = await getDocs(emailQuery);
 
-            const loginQuery = emailOrUsername.includes('@')
-                ? query(usersRef, where('email', '==', emailOrUsername))
-                : query(usersRef, where('username', '==', emailOrUsername));
-
-            const loginSnapshot = await getDocs(loginQuery);
-
-            if (loginSnapshot.empty) {
-                return { success: false, message: 'Invalid username or email.' };
+            if (emailSnapshot.empty) {
+                return { success: false, message: 'Invalid email or password.' };
             }
 
-            userDoc = loginSnapshot.docs[0].data();
+            const userData = emailSnapshot.docs[0].data();
 
-            const isPasswordValid = await bcrypt.compare(password, userDoc.password);
+            // Verify password
+            const isPasswordValid = await bcrypt.compare(data.password, userData.password);
             if (!isPasswordValid) {
-                return { success: false, message: 'Incorrect password.' };
+                return { success: false, message: 'Invalid email or password.' };
             }
-
-            await signInWithEmailAndPassword(auth, userDoc.email, password);
 
             return {
                 success: true,
                 message: 'Login successful!',
-                user: userDoc,
+                user: userData,
             };
         }
     } catch (error) {
-        console.error('Error during login:', error);
-        return { success: false, message: 'Login failed. Please try again.' };
+        console.error('Error in loginUser:', error);
+        throw new Error('Login process failed.');
     }
 };
-
 
 const forgotPassword = async (email) => {
     try {
