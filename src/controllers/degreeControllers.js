@@ -225,6 +225,21 @@ const getDegreeById = async (degreeId) => {
     }
   };
 
+  const deepRemoveUndefined = (obj) => {
+    if (Array.isArray(obj)) {
+      return obj.map(item => deepRemoveUndefined(item)); 
+    } else if (typeof obj === 'object' && obj !== null) {
+      return Object.keys(obj).reduce((acc, key) => {
+        // Keep the ID fields and remove undefined fields
+        if (key.includes('Id') || obj[key] !== undefined) {
+          acc[key] = deepRemoveUndefined(obj[key]); // Keep the field if it has an ID or value
+        }
+        return acc;
+      }, {});
+    }
+    return obj;
+  };
+  
   const editDegree = async (degreeId, updatedDegreeData) => {
     try {
       checkRequiredFields(updatedDegreeData);
@@ -238,12 +253,10 @@ const getDegreeById = async (degreeId) => {
   
       const degreeDocRef = doc(db, DEGREES_COLLECTION, querySnapshot.docs[0].id);
   
-      // Destructure and ensure defaults for missing fields
       const { degreeTitle, description, thumbnail, overviewPoints = [], courses = [] } = updatedDegreeData;
   
       const degreeThumbnailUrl = thumbnail ? await uploadThumbnail(thumbnail) : null;
   
-      // Ensure that overviewPoints and courses are arrays
       const formattedOverviewPoints = overviewPoints.map((point) => ({
         title: point.title || null,
         description: point.description || null,
@@ -252,15 +265,13 @@ const getDegreeById = async (degreeId) => {
       const formattedCourses = await Promise.all(
         courses.map(async (course) => {
           const courseThumbnailUrl = course.thumbnail ? await uploadThumbnail(course.thumbnail) : null;
-  
-          // Ensure each course has chapters, and chapters have lessons
           const formattedChapters = await Promise.all(
             (course.chapters || []).map(async (chapter) => {
               const formattedLessons = await Promise.all(
                 (chapter.lessons || []).map(async (lesson) => {
                   const lessonFileMetadata = lesson.file ? await uploadFile(lesson.file) : null;
                   return {
-                    lessonId: lesson.lessonId,  // Keep existing lessonId
+                    lessonId: lesson.lessonId,  // Keep the lesson ID
                     lessonTitle: lesson.lessonTitle || null,
                     file: lessonFileMetadata,
                   };
@@ -270,7 +281,7 @@ const getDegreeById = async (degreeId) => {
               const test = chapter.test ? createTestObject(chapter.test) : null;
   
               return {
-                chapterId: chapter.chapterId,  // Keep existing chapterId
+                chapterId: chapter.chapterId,  // Keep the chapter ID
                 chapterTitle: chapter.chapterTitle || null,
                 description: chapter.description || null,
                 test: test,
@@ -280,7 +291,7 @@ const getDegreeById = async (degreeId) => {
           );
   
           return {
-            courseId: course.courseId,  // Keep existing courseId
+            courseId: course.courseId,  // Keep the course ID
             courseTitle: course.courseTitle || null,
             description: course.description || null,
             thumbnail: courseThumbnailUrl || null,
@@ -295,48 +306,28 @@ const getDegreeById = async (degreeId) => {
         })
       );
   
-      // Construct the updated degree object
       const updatedDegree = {
-        degreeTitle: degreeTitle || null,  // Ensure null instead of undefined
-        description: description || null,  // Ensure null instead of undefined
-        thumbnail: degreeThumbnailUrl || null,  // Ensure null instead of undefined
+        degreeId: degreeId,  // Keep the degree ID unchanged
+        degreeTitle: degreeTitle || null,
+        description: description || null,
+        thumbnail: degreeThumbnailUrl || null,
         overviewPoints: formattedOverviewPoints,
         courses: formattedCourses,
         updatedAt: Date.now(),
       };
   
-      // Log the updatedDegree object to verify there are no undefined fields
-      console.log('Updated Degree:', JSON.stringify(updatedDegree, null, 2));
+      const finalUpdatedDegree = deepRemoveUndefined(updatedDegree);  // Remove undefined fields but preserve IDs
   
-      // Ensure none of the fields are undefined
-      Object.keys(updatedDegree).forEach(key => {
-        if (updatedDegree[key] === undefined) {
-          console.warn(`Field ${key} is undefined. Setting it to null.`);
-          updatedDegree[key] = null;
-        }
-      });
-  
-      // Add another layer of logging to identify if any nested fields might be undefined
-      updatedDegree.courses.forEach((course, index) => {
-        course.chapters.forEach((chapter, chapterIndex) => {
-          chapter.lessons.forEach((lesson, lessonIndex) => {
-            if (lesson.lessonId === undefined) {
-              console.warn(`Lesson ID missing for Lesson ${lessonIndex} in Chapter ${chapterIndex} of Course ${index}. Setting to null.`);
-              lesson.lessonId = null;
-            }
-          });
-        });
-      });
-  
-      // Perform the Firestore update
-      await updateDoc(degreeDocRef, updatedDegree);
+      await updateDoc(degreeDocRef, finalUpdatedDegree);
       console.log('Degree updated successfully!');
-      return updatedDegree;
+      return finalUpdatedDegree;
     } catch (error) {
       console.error('Error updating degree:', error.message);
       throw new Error('Degree update failed');
     }
   };
+  
+    
   
   
   

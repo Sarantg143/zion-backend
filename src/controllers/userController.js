@@ -278,6 +278,14 @@ const getAllUsers = async () => {
 const addCourseToUser = async (userId, courseId, courseTitle) => {
     try {
         const { degreeId, degreeTitle } = await getDegreeByCourseId(courseId);
+        const courseDocRef = doc(db, 'courses', courseId);
+        const courseDoc = await getDoc(courseDocRef);
+        
+        if (!courseDoc.exists()) {
+            throw new Error('Course not found');
+        }
+
+        const courseData = courseDoc.data();
 
         const purchasedCourse = {
             courseId,
@@ -285,12 +293,26 @@ const addCourseToUser = async (userId, courseId, courseTitle) => {
             degreeId,
             degreeTitle,
             progress: 0,
-            chapters: [], 
+            chapters: courseData.chapters || [], 
         };
 
         const userDocRef = doc(db, 'users', userId);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (!userDoc.exists()) {
+            throw new Error('User not found');
+        }
+
+        const userData = userDoc.data();
+        const existingCourses = userData.purchasedCourses || [];
+
+        const isCourseAlreadyPurchased = existingCourses.some(course => course.courseId === courseId);
+
+        if (isCourseAlreadyPurchased) {
+            throw new Error('User is already enrolled in this course.');
+        }
         await updateDoc(userDocRef, {
-            purchasedCourses: arrayUnion(purchasedCourse),
+            purchasedCourses: arrayUnion(purchasedCourse),  
         });
 
         console.log('Course added to purchased courses successfully!');
@@ -299,6 +321,9 @@ const addCourseToUser = async (userId, courseId, courseTitle) => {
         throw new Error('Failed to add course to user');
     }
 };
+
+
+
 
 const markUserAnswers = async (userId, courseId, testType, answers, marks, totalMarks) => {
     try {
@@ -416,6 +441,7 @@ const getEnrolledCourses = async (userId) => {
         throw new Error('Failed to fetch enrolled courses');
     }
 };
+
 
 // Export all user service functions
 module.exports = {
